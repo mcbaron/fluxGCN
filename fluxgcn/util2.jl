@@ -1,6 +1,8 @@
 using PyCall
 using SparseArrays
 using LinearAlgebra
+using Flux.Optimise
+import Flux.Tracker: data, grad, back!, update!
 
 const scipy_sparse_find = pyimport("scipy.sparse")["find"]
 function jlsparse(Apy::PyObject)
@@ -14,7 +16,7 @@ function jlload_data(dataset_str)
     py"""
 import numpy as np
 import scipy.sparse as sp
-import torch
+# import torch
 
 
 def encode_onehot(labels):
@@ -92,4 +94,25 @@ function jlaccuracy(preds, labels)
     correct_pred = equal(argmax(preds, 1), argmax(labels, 1))
     accuracy_all = cast(correct_pred, Float32)
     return reduce_mean(accuracy_all)
+end
+
+
+macro interrupts(ex)
+  :(try $(esc(ex))
+    catch e
+      e isa InterruptException || rethrow()
+      throw(e)
+    end)
+end
+
+function update!(opt, x, x̄)
+  update!(x, apply!(opt, x, copy(data(x̄))))
+end
+
+function _update_params!(opt, xs)
+  for x in xs
+    Δ = Optimise.apply!(opt, x.data, x.grad)
+    x.data .-= Δ
+    Δ .= 0
+  end
 end

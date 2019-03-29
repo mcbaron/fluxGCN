@@ -1,14 +1,13 @@
 #train.jl
+using Flux
+using Flux: @epochs
+import Flux.Tracker: Params, gradient, data, update!, grad, back!
+using ArgParse
 
 include("util2.jl")
 include("models.jl")
 
 include("args.jl")
-
-using Flux
-using Flux: @epochs
-import Flux.Tracker: Params, gradient, data, update!
-using ArgParse
 
 # Training Settings
 FLAGS = parse_commandline()
@@ -25,14 +24,14 @@ optimizer = ADAMW(FLAGS["lr"], (0.9, 0.999), FLAGS["weight_decay"])
 
 # Loss
 function train_loss(x, y)
-    @show(size(x))
+    # @show(size(x))
     output = model(x)
-    return Flux.logitcrossentropy(output[idx_train, :], y[idx_train, :])
+    return Flux.crossentropy(output[idx_train, :], y[idx_train, :])
 end
 
 function val_loss(x, y)
     output = model(x)
-    return Flux.logitcrossentropy(output[idx_val, :], y[idx_val, :])
+    return Flux.crossentropy(output[idx_val, :], y[idx_val, :])
 end
 
 train_accuracy(x, y) = jlaccuracy(model(x)[idx_train, :], y[idx_train, :])
@@ -46,16 +45,15 @@ function train(train_loss, val_loss, ps, data, labels, optim)
     @show(train_loss(data, labels))
     @show(val_loss(data, labels))
 
-    @progress for i in 1:size(data,1)
+    # @progress for i in 1:size(data,1)
         try
-            gs = gradient(ps) do
-                train_loss(data[i,:], labels[i,:])
-            end
-            update!(optim, ps, gs)
+            l = train_loss(data, labels)
+            @interrupts back!(l)
+            _update_params!(optim, ps)
         catch ex
             rethrow(ex)
         end
-    end
+    # end
 
     @show(time() - t0)
 end

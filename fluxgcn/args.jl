@@ -17,7 +17,7 @@ s = ArgParseSettings()
     "--epochs"
         help = "Number of Training Epochs"
         arg_type = Int
-        default = 200
+        default = 300
     "--lr"
         help="Learning Rate"
         arg_type = Float64
